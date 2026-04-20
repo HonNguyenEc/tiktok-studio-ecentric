@@ -12,7 +12,8 @@ import type {
   SessionState,
   ShopInfo,
   StreamHealth,
-  TiktokLiveBasicInfo,
+  TiktokGiftEvent,
+  TiktokLiveConnectionStatus,
 } from "../../common/type/app.type";
 import type { StudioRouteProps } from "../../common/route/studio.route";
 import type { ProductRouteProps } from "../../common/route/product.route";
@@ -50,14 +51,18 @@ type SessionSlice = {
   onObsSceneNameChange: (sceneName: string) => void;
   onAttachTiktokLiveUrl: () => void | Promise<void>;
   onDetachTiktokLiveUrl: () => void;
-  tiktokPlayableLiveInput: string;
-  setTiktokPlayableLiveInput: Dispatch<SetStateAction<string>>;
-  tiktokPlayableLiveUrl: string;
-  tiktokLiveStudioStatus: "disconnected" | "attached" | "live";
-  isAttachingTiktokLive: boolean;
-  isLoadingTiktokLiveBasicInfo: boolean;
-  isTiktokLiveAttached: boolean;
-  tiktokLiveBasicInfo: TiktokLiveBasicInfo | null;
+  tiktokUsernameInput: string;
+  setTiktokUsernameInput: Dispatch<SetStateAction<string>>;
+  tiktokUsername: string;
+  tiktokLiveEmbedUrl: string;
+  tiktokConnectionStatus: TiktokLiveConnectionStatus;
+  tiktokConnectionMessage: string;
+  isConnectingTiktokLive: boolean;
+  tiktokRealtimeComments: CommentItem[];
+  tiktokTotalLikes: number;
+  tiktokViewerCount: number;
+  tiktokTotalComments: number;
+  latestTiktokGift: TiktokGiftEvent | null;
   marketplaceShopProfile: MarketplaceShopProfile | null;
   isLoadingMarketplaceShopProfile: boolean;
   realtimeMetrics: RealtimeMetrics;
@@ -151,14 +156,18 @@ export const buildStudioRouteProps = ({
   onObsSceneNameChange: session.onObsSceneNameChange,
   onAttachTiktokLiveUrl: session.onAttachTiktokLiveUrl,
   onDetachTiktokLiveUrl: session.onDetachTiktokLiveUrl,
-  tiktokPlayableLiveInput: session.tiktokPlayableLiveInput,
-  setTiktokPlayableLiveInput: session.setTiktokPlayableLiveInput,
-  tiktokPlayableLiveUrl: session.tiktokPlayableLiveUrl,
-  tiktokLiveStudioStatus: session.tiktokLiveStudioStatus,
-  isAttachingTiktokLive: session.isAttachingTiktokLive,
-  isLoadingTiktokLiveBasicInfo: session.isLoadingTiktokLiveBasicInfo,
-  isTiktokLiveAttached: session.isTiktokLiveAttached,
-  tiktokLiveBasicInfo: session.tiktokLiveBasicInfo,
+  tiktokUsernameInput: session.tiktokUsernameInput,
+  setTiktokUsernameInput: session.setTiktokUsernameInput,
+  tiktokUsername: session.tiktokUsername,
+  tiktokLiveEmbedUrl: session.tiktokLiveEmbedUrl,
+  tiktokConnectionStatus: session.tiktokConnectionStatus,
+  tiktokConnectionMessage: session.tiktokConnectionMessage,
+  isConnectingTiktokLive: session.isConnectingTiktokLive,
+  tiktokRealtimeComments: session.tiktokRealtimeComments,
+  tiktokTotalLikes: session.tiktokTotalLikes,
+  tiktokViewerCount: session.tiktokViewerCount,
+  tiktokTotalComments: session.tiktokTotalComments,
+  latestTiktokGift: session.latestTiktokGift,
   marketplaceShopProfile: session.marketplaceShopProfile,
   isLoadingMarketplaceShopProfile: session.isLoadingMarketplaceShopProfile,
   realtimeMetrics: session.realtimeMetrics,
@@ -191,6 +200,7 @@ export const buildProductRouteProps = ({ darkMode, product }: BuildProductRouteP
 type BuildCommentRoutePropsArgs = {
   darkMode: boolean;
   comment: CommentSlice;
+  session: Pick<SessionSlice, "tiktokRealtimeComments" | "tiktokConnectionStatus">;
   currentUser: DemoAccount;
   managementPlatform: ManagementPlatform;
 };
@@ -198,11 +208,14 @@ type BuildCommentRoutePropsArgs = {
 export const buildCommentRouteProps = ({
   darkMode,
   comment,
+  session,
   currentUser,
   managementPlatform,
 }: BuildCommentRoutePropsArgs): CommentRouteProps => ({
   darkMode,
   comments: comment.comments,
+  tiktokRealtimeComments: session.tiktokRealtimeComments,
+  tiktokConnectionStatus: session.tiktokConnectionStatus,
   draftComment: comment.draftComment,
   setDraftComment: comment.setDraftComment,
   sendComment: comment.sendComment,

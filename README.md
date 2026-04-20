@@ -15,10 +15,53 @@ Full rulebook: **`docs/architecture-rules.md`**
 
 ## Scripts
 
-- `yarn dev`
-- `yarn lint`
-- `yarn build`
-- `yarn preview`
+- `npm run dev` (run frontend + TikTok realtime backend together)
+- `npm run lint`
+- `npm run build`
+- `npm run preview`
+
+## TikTok Realtime Integration (inside existing TikTok section)
+
+Project now includes realtime TikTok livestream data pipeline:
+
+- Backend: `server/index.js` (Express + Socket.IO + `tiktok-live-connector`)
+- Frontend: integrated directly into the current TikTok UI flow
+
+Realtime events supported:
+
+- `chat` → comment stream
+- `like` → total likes
+- `roomUser` → viewer count
+- `gift` → gift popup notification
+
+### Quick start (under 5 minutes)
+
+1. Install dependencies
+
+```bash
+npm install
+```
+
+2. Create local env from example
+
+```bash
+copy .env.example .env
+```
+
+3. Start app
+
+```bash
+npm run dev
+```
+
+4. Open `http://localhost:5173`, login, switch to **Tiktok**.
+5. In TikTok connection panel, enter **TikTok username** and click **Connect**.
+
+### Environment variables
+
+- `VITE_TIKTOK_SOCKET_URL` default: `http://localhost:3001`
+- `SERVER_PORT` default: `3001`
+- `CLIENT_ORIGIN` default: `http://localhost:5173`
 
 ## Environment
 

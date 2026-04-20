@@ -1,4 +1,5 @@
-import { useState, type ChangeEvent } from "react";
+import { useEffect, useRef, useState, type ChangeEvent } from "react";
+import { io, type Socket } from "socket.io-client";
 import {
   createMockSession,
   endMockStream,
@@ -6,21 +7,25 @@ import {
   startMockStream,
 } from "../../../service/livestream.service";
 import type {
+  CommentItem,
   ManagementPlatform,
   ObsConfig,
   SessionState,
-  TiktokLiveBasicInfo,
+  TiktokGiftEvent,
+  TiktokLiveConnectionStatus,
 } from "../../../common/type/app.type";
 import { startObsStream, stopObsStream } from "../../../service/obs.service";
 import { toPlatformKey } from "../../../common/util/platform.util";
-import { classifyLivePreviewUrl } from "../../../common/util/live-preview.util";
-import { getTiktokLiveBasicInfo } from "../../../service/tiktok-live-basic-info.service";
 import { canRunWithCooldown, createRequestId } from "../util/action-control.util";
 import { loadPersistedObsConfig } from "../util/session-storage.util";
 import { useSessionPersistenceHook } from "./use-session-persistence.hook";
 import { useSessionSchedulerHook } from "./use-session-scheduler.hook";
 import { useMarketplaceLiveSyncHook } from "./use-marketplace-live-sync.hook";
 import { useObsLifecycleHook } from "./use-obs-lifecycle.hook";
+
+const TIKTOK_SOCKET_URL = import.meta.env.VITE_TIKTOK_SOCKET_URL || "http://localhost:3001";
+
+const toLocalTime = (timestamp?: number) => new Date(timestamp || Date.now()).toLocaleTimeString();
 
 type UseSessionLifecycleHookArgs = {
   managementPlatform: ManagementPlatform;
@@ -60,12 +65,17 @@ export const useSessionLifecycleHook = ({
 
   const [obsConfig, setObsConfig] = useState<ObsConfig>(loadPersistedObsConfig(platformKey));
   const [obsSceneDraft, setObsSceneDraft] = useState<string>("");
-  const [tiktokPlayableLiveInput, setTiktokPlayableLiveInput] = useState<string>("");
-  const [tiktokPlayableLiveUrl, setTiktokPlayableLiveUrl] = useState<string>("");
-  const [tiktokLiveStudioStatus, setTiktokLiveStudioStatus] = useState<"disconnected" | "attached" | "live">("disconnected");
-  const [isAttachingTiktokLive, setIsAttachingTiktokLive] = useState<boolean>(false);
-  const [isLoadingTiktokLiveBasicInfo, setIsLoadingTiktokLiveBasicInfo] = useState<boolean>(false);
-  const [tiktokLiveBasicInfo, setTiktokLiveBasicInfo] = useState<TiktokLiveBasicInfo | null>(null);
+  const [tiktokUsernameInput, setTiktokUsernameInput] = useState<string>("");
+  const [tiktokUsername, setTiktokUsername] = useState<string>("");
+  const [tiktokConnectionStatus, setTiktokConnectionStatus] = useState<TiktokLiveConnectionStatus>("disconnected");
+  const [tiktokConnectionMessage, setTiktokConnectionMessage] = useState<string>("");
+  const [isConnectingTiktokLive, setIsConnectingTiktokLive] = useState<boolean>(false);
+  const [tiktokRealtimeComments, setTiktokRealtimeComments] = useState<CommentItem[]>([]);
+  const [tiktokTotalLikes, setTiktokTotalLikes] = useState<number>(0);
+  const [tiktokViewerCount, setTiktokViewerCount] = useState<number>(0);
+  const [tiktokTotalComments, setTiktokTotalComments] = useState<number>(0);
+  const [latestTiktokGift, setLatestTiktokGift] = useState<TiktokGiftEvent | null>(null);
+  const socketRef = useRef<Socket | null>(null);
 
   const {
     obsSessionState,
@@ -128,6 +138,84 @@ export const useSessionLifecycleHook = ({
     managementPlatform,
     addLog,
   });
+
+  useEffect(() => {
+    const socket = io(TIKTOK_SOCKET_URL, {
+      transports: ["websocket"],
+      autoConnect: true,
+      reconnection: true,
+    });
+
+    socketRef.current = socket;
+
+    socket.on("tiktokStatus", (payload: { status?: TiktokLiveConnectionStatus; message?: string; username?: string }) => {
+      const status = payload.status || "disconnected";
+      setTiktokConnectionStatus(status);
+      setTiktokConnectionMessage(payload.message || "");
+      setIsConnectingTiktokLive(status === "connecting");
+
+      if (payload.username) {
+        setTiktokUsername(payload.username);
+        setTiktokUsernameInput(payload.username);
+      }
+
+      if (status === "disconnected" || status === "error") {
+        setTiktokViewerCount(0);
+      }
+    });
+
+    socket.on("chat", (payload: { username?: string; comment?: string; timestamp?: number }) => {
+      setTiktokRealtimeComments((prev) => {
+        const next: CommentItem = {
+          id: Date.now() + Math.random(),
+          user: payload.username || "viewer",
+          text: payload.comment || "",
+          time: toLocalTime(payload.timestamp),
+          platform: "Tiktok",
+        };
+
+        const updated = [...prev, next];
+        return updated.slice(-100);
+      });
+      setTiktokTotalComments((prev) => prev + 1);
+    });
+
+    socket.on("like", (payload: { totalLikes?: number }) => {
+      if (typeof payload.totalLikes === "number") {
+        setTiktokTotalLikes(payload.totalLikes);
+      }
+    });
+
+    socket.on("viewer", (payload: { viewers?: number }) => {
+      if (typeof payload.viewers === "number") {
+        setTiktokViewerCount(payload.viewers);
+      }
+    });
+
+    socket.on("gift", (payload: { id?: string; username?: string; giftName?: string; repeatCount?: number; timestamp?: number }) => {
+      setLatestTiktokGift({
+        id: payload.id || `${Date.now()}`,
+        username: payload.username || "viewer",
+        giftName: payload.giftName || "Gift",
+        repeatCount: Number(payload.repeatCount || 1),
+        timestamp: toLocalTime(payload.timestamp),
+      });
+    });
+
+    return () => {
+      socket.disconnect();
+      socketRef.current = null;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!latestTiktokGift) return;
+    const timeout = window.setTimeout(() => {
+      setLatestTiktokGift(null);
+    }, 3200);
+
+    return () => window.clearTimeout(timeout);
+  }, [latestTiktokGift]);
 
   const onCoverChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -216,14 +304,14 @@ export const useSessionLifecycleHook = ({
   const onStartStream = async () => {
     setAppError("");
 
-    if (managementPlatform === "Tiktok" && !tiktokPlayableLiveUrl) {
-      setAppError("Please attach TikTok playable live URL before starting stream.");
-      addLog("TikTok live URL required", "Attach TikTok Live Studio playable URL before going live.", {
+    if (managementPlatform === "Tiktok" && !tiktokUsername) {
+      setAppError("Please connect TikTok username before starting stream.");
+      addLog("TikTok username required", "Connect TikTok username before going live.", {
         platform: managementPlatform,
         result: "error",
-        errorCode: "TIKTOK_LIVE_URL_REQUIRED",
+        errorCode: "TIKTOK_USERNAME_REQUIRED",
       });
-      showToast("Attach TikTok live URL first.", "error");
+      showToast("Connect TikTok username first.", "error");
       return;
     }
 
@@ -269,10 +357,6 @@ export const useSessionLifecycleHook = ({
 
       if (managementPlatform === "Shopee" && obsSessionState.connectionStatus === "connected" && !obsSessionState.isStreaming) {
         await startObsStream(platformKey);
-      }
-
-      if (managementPlatform === "Tiktok" && tiktokPlayableLiveUrl) {
-        setTiktokLiveStudioStatus("live");
       }
 
       addLog("Stream started", result.detail, {
@@ -321,10 +405,6 @@ export const useSessionLifecycleHook = ({
         await stopObsStream(platformKey);
       }
 
-      if (managementPlatform === "Tiktok") {
-        setTiktokLiveStudioStatus(tiktokPlayableLiveUrl ? "attached" : "disconnected");
-      }
-
       addLog("Stream ended", result.detail, {
         platform: managementPlatform,
         result: "success",
@@ -344,77 +424,55 @@ export const useSessionLifecycleHook = ({
     }
   };
 
-  const isTiktokLiveAttached = Boolean(tiktokPlayableLiveUrl);
-
   const onAttachTiktokLiveUrl = async () => {
     setAppError("");
     if (managementPlatform !== "Tiktok") return;
-    const nextUrl = tiktokPlayableLiveInput.trim();
-    const previewSourceType = classifyLivePreviewUrl(nextUrl);
+    const username = tiktokUsernameInput.trim().replace(/^@/, "");
 
-    if (previewSourceType === "invalid" || previewSourceType === "empty") {
-      setAppError("Please enter a valid TikTok playable live URL (http/https).");
-      showToast("Invalid live URL.", "error");
+    if (!username) {
+      setAppError("Please enter TikTok username.");
+      showToast("TikTok username is required.", "error");
       return;
     }
 
-    setIsAttachingTiktokLive(true);
-    try {
-      setTiktokPlayableLiveUrl(nextUrl);
-      setTiktokLiveStudioStatus(sessionState === "live" ? "live" : "attached");
-      setIsLoadingTiktokLiveBasicInfo(true);
+    setTiktokUsername(username);
+    setTiktokRealtimeComments([]);
+    setTiktokTotalComments(0);
+    setTiktokTotalLikes(0);
+    setTiktokViewerCount(0);
+    setLatestTiktokGift(null);
+    setIsConnectingTiktokLive(true);
 
-      if (previewSourceType === "video-direct") {
-        addLog("TikTok live URL attached", `TikTok Live Studio URL attached: ${nextUrl}`, {
-          platform: managementPlatform,
-          result: "success",
-        });
-        showToast("TikTok live URL attached.", "success");
-      } else {
-        addLog(
-          "TikTok live page attached",
-          "Attached a TikTok web page URL. In-app direct playback is unavailable; use Open in new tab fallback.",
-          {
-            platform: managementPlatform,
-            result: "info",
-          },
-        );
-        showToast("TikTok live page attached. Use Open in new tab for playback.", "info");
-      }
+    socketRef.current?.emit("setUsername", { username });
 
-      try {
-        const liveInfo = await getTiktokLiveBasicInfo(nextUrl);
-        setTiktokLiveBasicInfo(liveInfo);
-      } catch {
-        setTiktokLiveBasicInfo({
-          uniqueId: "",
-          liveUrl: nextUrl,
-          source: "url-parser",
-          status: "error",
-          lastCheckedAt: new Date().toLocaleTimeString(),
-          error: "Failed to fetch TikTok live basic info.",
-        });
-      } finally {
-        setIsLoadingTiktokLiveBasicInfo(false);
-      }
-    } finally {
-      setIsAttachingTiktokLive(false);
-    }
+    addLog("TikTok username connected", `Connected TikTok livestream source: @${username}`, {
+      platform: managementPlatform,
+      result: "success",
+    });
+    showToast(`TikTok source set: @${username}`, "success");
   };
 
   const onDetachTiktokLiveUrl = () => {
     if (managementPlatform !== "Tiktok") return;
-    setTiktokPlayableLiveUrl("");
-    setTiktokPlayableLiveInput("");
-    setTiktokLiveStudioStatus("disconnected");
-    setTiktokLiveBasicInfo(null);
-    setIsLoadingTiktokLiveBasicInfo(false);
-    addLog("TikTok live URL detached", "TikTok playable live URL removed.", {
+    socketRef.current?.emit("clearUsername");
+    setTiktokUsername("");
+    setTiktokUsernameInput("");
+    setTiktokConnectionStatus("disconnected");
+    setTiktokConnectionMessage("");
+    setIsConnectingTiktokLive(false);
+    setTiktokRealtimeComments([]);
+    setTiktokTotalLikes(0);
+    setTiktokTotalComments(0);
+    setTiktokViewerCount(0);
+    setLatestTiktokGift(null);
+    addLog("TikTok source disconnected", "TikTok livestream source disconnected.", {
       platform: managementPlatform,
       result: "info",
     });
-    showToast("TikTok live URL detached.", "info");
+    showToast("TikTok source disconnected.", "info");
   };
+
+  const tiktokLiveEmbedUrl = tiktokUsername ? `https://www.tiktok.com/@${tiktokUsername}/live` : "";
 
   return {
     sessionState,
@@ -434,14 +492,18 @@ export const useSessionLifecycleHook = ({
     obsConfig,
     obsSessionState,
     obsSceneDraft,
-    tiktokPlayableLiveInput,
-    setTiktokPlayableLiveInput,
-    tiktokPlayableLiveUrl,
-    tiktokLiveStudioStatus,
-    isAttachingTiktokLive,
-    isLoadingTiktokLiveBasicInfo,
-    isTiktokLiveAttached,
-    tiktokLiveBasicInfo,
+    tiktokUsernameInput,
+    setTiktokUsernameInput,
+    tiktokUsername,
+    tiktokLiveEmbedUrl,
+    tiktokConnectionStatus,
+    tiktokConnectionMessage,
+    isConnectingTiktokLive,
+    tiktokRealtimeComments,
+    tiktokTotalLikes,
+    tiktokViewerCount,
+    tiktokTotalComments,
+    latestTiktokGift,
     marketplaceShopProfile,
     isLoadingMarketplaceShopProfile,
     realtimeMetrics,

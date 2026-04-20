@@ -97,6 +97,16 @@ export type TiktokLiveBasicInfo = {
   error?: string;
 };
 
+export type TiktokLiveConnectionStatus = "disconnected" | "connecting" | "connected" | "error";
+
+export type TiktokGiftEvent = {
+  id: string;
+  username: string;
+  giftName: string;
+  repeatCount: number;
+  timestamp: string;
+};
+
 export type LoginForm = {
   email: string;
   password: string;

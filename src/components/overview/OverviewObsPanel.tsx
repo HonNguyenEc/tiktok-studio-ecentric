@@ -6,70 +6,57 @@ export default function OverviewObsPanel(props: OverviewTabProps) {
 
   if (props.managementPlatform === "Tiktok") {
     const statusColor =
-      props.tiktokLiveStudioStatus === "live"
+      props.tiktokConnectionStatus === "connected"
         ? "text-emerald-400"
-        : props.tiktokLiveStudioStatus === "attached"
+        : props.tiktokConnectionStatus === "connecting"
           ? "text-cyan-400"
+          : props.tiktokConnectionStatus === "error"
+            ? "text-red-400"
           : "text-slate-400";
 
     return (
       <div className={`space-y-3 rounded-2xl border p-4 ${dark ? "border-white/10 bg-slate-900/45" : "border-slate-200 bg-slate-50"}`}>
         <div className="flex items-center justify-between">
           <div className={`inline-flex items-center gap-2 text-sm font-semibold ${dark ? "text-white" : "text-slate-900"}`}>
-            <Tv className="h-4 w-4" /> TikTok Live Studio Connection
+            <Tv className="h-4 w-4" /> TikTok Live Connection
           </div>
-          <div className={`text-xs font-semibold ${statusColor}`}>{props.tiktokLiveStudioStatus.toUpperCase()}</div>
+          <div className={`text-xs font-semibold ${statusColor}`}>{props.tiktokConnectionStatus.toUpperCase()}</div>
         </div>
 
         <p className={`text-xs ${dark ? "text-white/65" : "text-slate-600"}`}>
-          Attach a playable live URL from TikTok Live Studio. When stream is started, preview will play inside dashboard.
+          Nhập TikTok username để kết nối realtime comments, likes, viewers và gifts.
         </p>
 
         <div className="grid gap-2 md:grid-cols-[1fr_auto_auto]">
           <input
-            value={props.tiktokPlayableLiveInput}
-            onChange={(e) => props.setTiktokPlayableLiveInput(e.target.value)}
-            placeholder="https://.../live.m3u8"
+            value={props.tiktokUsernameInput}
+            onChange={(e) => props.setTiktokUsernameInput(e.target.value)}
+            placeholder="vd: creator_username"
             className={`rounded-2xl border px-3 py-2 text-sm ${dark ? "border-white/10 bg-slate-900/70 text-white" : "border-slate-200 bg-white"}`}
           />
           <button
             onClick={props.onAttachTiktokLiveUrl}
-            disabled={props.isAttachingTiktokLive}
+            disabled={props.isConnectingTiktokLive}
             className="rounded-2xl bg-cyan-600/90 px-4 py-2.5 text-sm font-semibold text-white disabled:bg-cyan-900/30"
           >
-            {props.isAttachingTiktokLive ? "Attaching..." : "Attach"}
+            {props.isConnectingTiktokLive ? "Connecting..." : "Connect"}
           </button>
           <button
             onClick={props.onDetachTiktokLiveUrl}
-            disabled={!props.isTiktokLiveAttached}
+            disabled={!props.tiktokUsername}
             className="rounded-2xl bg-slate-600/90 px-4 py-2.5 text-sm font-semibold text-white disabled:bg-slate-800/40"
           >
-            Detach
+            Disconnect
           </button>
         </div>
 
         <div className={`text-xs ${dark ? "text-white/60" : "text-slate-600"}`}>
-          Attached URL: <span className={dark ? "text-white" : "text-slate-900"}>{props.tiktokPlayableLiveUrl || "--"}</span>
+          Username: <span className={dark ? "text-white" : "text-slate-900"}>{props.tiktokUsername ? `@${props.tiktokUsername}` : "--"}</span>
         </div>
 
         <div className={`rounded-2xl border p-3 text-xs ${dark ? "border-white/10 bg-slate-900/60 text-white/80" : "border-slate-200 bg-white text-slate-700"}`}>
-          <div className="mb-2 font-semibold">Live Basic Info</div>
-          {props.isLoadingTiktokLiveBasicInfo ? (
-            <div className={dark ? "text-white/70" : "text-slate-500"}>Loading live info...</div>
-          ) : props.tiktokLiveBasicInfo ? (
-            <div className="space-y-1">
-              <div>Status: <span className="font-semibold uppercase">{props.tiktokLiveBasicInfo.status}</span></div>
-              <div>Source: <span className="font-semibold">{props.tiktokLiveBasicInfo.source}</span></div>
-              <div>Creator: <span className="font-semibold">{props.tiktokLiveBasicInfo.ownerNickname || `@${props.tiktokLiveBasicInfo.uniqueId || "--"}`}</span></div>
-              <div>Room ID: <span className="font-semibold">{props.tiktokLiveBasicInfo.roomId || "--"}</span></div>
-              <div>Viewers: <span className="font-semibold">{props.tiktokLiveBasicInfo.viewerCount ?? "--"}</span></div>
-              <div>Title: <span className="font-semibold">{props.tiktokLiveBasicInfo.title || "--"}</span></div>
-              <div>Checked: <span className="font-semibold">{props.tiktokLiveBasicInfo.lastCheckedAt}</span></div>
-              {props.tiktokLiveBasicInfo.error ? <div className="text-red-400">Error: {props.tiktokLiveBasicInfo.error}</div> : null}
-            </div>
-          ) : (
-            <div className={dark ? "text-white/70" : "text-slate-500"}>Attach a TikTok live URL to fetch basic info.</div>
-          )}
+          <div className="mb-2 font-semibold">Connection Message</div>
+          <div className={dark ? "text-white/80" : "text-slate-700"}>{props.tiktokConnectionMessage || "Waiting for TikTok username..."}</div>
         </div>
       </div>
     );

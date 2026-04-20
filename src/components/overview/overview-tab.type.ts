@@ -2,6 +2,8 @@ import type { Dispatch, SetStateAction, ChangeEvent } from "react";
 import type {
   CommentItem,
   DemoAccount,
+  TiktokGiftEvent,
+  TiktokLiveConnectionStatus,
   LogItem,
   ManagementPlatform,
   MarketplaceShopProfile,
@@ -12,7 +14,6 @@ import type {
   SessionState,
   ShopInfo,
   StreamHealth,
-  TiktokLiveBasicInfo,
 } from "../../common/type/app.type";
 
 export type OverviewTabProps = {
@@ -38,14 +39,18 @@ export type OverviewTabProps = {
   onAttachTiktokLiveUrl: () => void | Promise<void>;
   onDetachTiktokLiveUrl: () => void;
   streamUrl: string;
-  tiktokPlayableLiveInput: string;
-  setTiktokPlayableLiveInput: Dispatch<SetStateAction<string>>;
-  tiktokPlayableLiveUrl: string;
-  tiktokLiveStudioStatus: "disconnected" | "attached" | "live";
-  isAttachingTiktokLive: boolean;
-  isLoadingTiktokLiveBasicInfo: boolean;
-  isTiktokLiveAttached: boolean;
-  tiktokLiveBasicInfo: TiktokLiveBasicInfo | null;
+  tiktokUsernameInput: string;
+  setTiktokUsernameInput: Dispatch<SetStateAction<string>>;
+  tiktokUsername: string;
+  tiktokLiveEmbedUrl: string;
+  tiktokConnectionStatus: TiktokLiveConnectionStatus;
+  tiktokConnectionMessage: string;
+  isConnectingTiktokLive: boolean;
+  tiktokRealtimeComments: CommentItem[];
+  tiktokTotalLikes: number;
+  tiktokViewerCount: number;
+  tiktokTotalComments: number;
+  latestTiktokGift: TiktokGiftEvent | null;
   obsConfig: ObsConfig;
   obsSessionState: ObsSessionState;
   obsSceneDraft: string;

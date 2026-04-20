@@ -35,8 +35,13 @@ export default function OverviewTab(props: OverviewTabProps) {
         darkMode={props.darkMode}
         managementPlatform={props.managementPlatform}
         coverPreview={props.coverPreview}
-        tiktokPlayableLiveUrl={props.tiktokPlayableLiveUrl}
-        tiktokLiveStudioStatus={props.tiktokLiveStudioStatus}
+        tiktokLiveEmbedUrl={props.tiktokLiveEmbedUrl}
+        tiktokConnectionStatus={props.tiktokConnectionStatus}
+        tiktokRealtimeComments={props.tiktokRealtimeComments}
+        tiktokTotalLikes={props.tiktokTotalLikes}
+        tiktokViewerCount={props.tiktokViewerCount}
+        tiktokTotalComments={props.tiktokTotalComments}
+        latestTiktokGift={props.latestTiktokGift}
         selectedProducts={props.selectedProducts}
         visibleProductId={props.visibleProductId}
         comments={props.comments}

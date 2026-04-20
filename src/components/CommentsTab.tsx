@@ -1,13 +1,20 @@
 import React from "react";
 import { RefreshCw } from "lucide-react";
 import Card from "./Card";
-import type { CommentItem, DemoAccount, ManagementPlatform } from "../common/type/app.type";
+import type {
+  CommentItem,
+  DemoAccount,
+  ManagementPlatform,
+  TiktokLiveConnectionStatus,
+} from "../common/type/app.type";
 
 type CommentsTabProps = {
   isRefreshingComments: boolean;
   isSendingComment: boolean;
   darkMode: boolean;
   comments: CommentItem[];
+  tiktokRealtimeComments: CommentItem[];
+  tiktokConnectionStatus: TiktokLiveConnectionStatus;
   draftComment: string;
   setDraftComment: React.Dispatch<React.SetStateAction<string>>;
   sendComment: () => void;
@@ -23,6 +30,8 @@ export default function CommentsTab({
   isSendingComment,
   darkMode,
   comments,
+  tiktokRealtimeComments,
+  tiktokConnectionStatus,
   draftComment,
   setDraftComment,
   sendComment,
@@ -33,6 +42,7 @@ export default function CommentsTab({
   managementPlatform,
 }: CommentsTabProps) {
   const refreshHint = managementPlatform === "Shopee" ? "5s" : "3.5s";
+  const displayComments = managementPlatform === "Tiktok" ? tiktokRealtimeComments : comments;
 
   return (
     <Card darkMode={darkMode}>
@@ -107,10 +117,16 @@ export default function CommentsTab({
         </div>
 
         <div className="mt-8 space-y-3">
-          {comments.length === 0 ? (
-            <div className={`text-lg ${darkMode ? "text-white/50" : "text-slate-500"}`}>No comments yet.</div>
+          {displayComments.length === 0 ? (
+            <div className={`text-lg ${darkMode ? "text-white/50" : "text-slate-500"}`}>
+              {managementPlatform === "Tiktok"
+                ? tiktokConnectionStatus === "connected"
+                  ? "Đã kết nối TikTok nhưng chưa có comment realtime."
+                  : "Chưa có comment realtime. Hãy connect TikTok username ở tab Overview."
+                : "No comments yet."}
+            </div>
           ) : (
-            comments
+            displayComments
               .slice()
               .reverse()
               .map((c) => (

@@ -88,6 +88,7 @@ export default function App() {
   const commentProps = buildCommentRouteProps({
     darkMode,
     comment,
+    session,
     currentUser: auth.currentUser,
     managementPlatform,
   });
