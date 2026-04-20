@@ -94,7 +94,7 @@ export default function LoginScreen({
                   <input
                     value={loginForm.email}
                     onChange={(e) => setLoginForm((prev) => ({ ...prev, email: e.target.value }))}
-                    placeholder="brandname@ecentric.com"
+                    placeholder="brandname@ecentric.vn"
                     className={`w-full rounded-2xl border px-4 py-3 text-sm outline-none ${darkMode ? "border-white/15 bg-slate-900/50 text-white placeholder:text-white/35" : "border-slate-200 bg-slate-50 text-slate-800 placeholder:text-slate-400"}`}
                   />
                 </div>
