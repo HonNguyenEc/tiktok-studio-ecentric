@@ -29,7 +29,7 @@ export const demoAccounts: DemoAccount[] = [
   {
     id: 1,
     role: "Admin",
-    email: "admin@ecentric.com",
+    email: "admin@ecentric.vn",
     password: "123456",
     name: "AI Studio Admin",
     shopName: "Ecentric AI Studio Store",
@@ -37,7 +37,7 @@ export const demoAccounts: DemoAccount[] = [
   {
     id: 3,
     role: "Admin",
-    email: "shopee@ecentric.com",
+    email: "shopee@ecentric.vn",
     password: "123456",
     name: "Livestream Shopee",
     shopName: "Shopee Store",
@@ -45,7 +45,7 @@ export const demoAccounts: DemoAccount[] = [
   {
     id: 2,
     role: "Operator",
-    email: "operator@ecentric.com",
+    email: "operator@ecentric.vn",
     password: "123456",
     name: "AI Studio Operator",
     shopName: "Ecentric AI Studio Store",
