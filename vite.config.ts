@@ -6,6 +6,11 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
     proxy: {
+      '/api/tiktok': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+        secure: false,
+      },
       '/api': {
         target: 'https://partner.shopeemobile.com',
         changeOrigin: true,

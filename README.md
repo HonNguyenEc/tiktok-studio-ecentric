@@ -15,24 +15,27 @@ Full rulebook: **`docs/architecture-rules.md`**
 
 ## Scripts
 
-- `npm run dev` (run frontend + TikTok realtime backend together)
+- `npm run dev` (run frontend with Vite)
+- `npm run dev:vercel` (run frontend + `/api/*` Vercel functions locally)
+- `npm run dev:server` (legacy Socket.IO server, no longer required for Vercel-only flow)
+- `npm run dev:tiktok` (run `vercel dev` + realtime Socket.IO TikTok bridge together)
 - `npm run lint`
 - `npm run build`
 - `npm run preview`
 
-## TikTok Realtime Integration (inside existing TikTok section)
+## TikTok Live Integration (Vercel API + polling + realtime socket)
 
-Project now includes realtime TikTok livestream data pipeline:
+Project now includes TikTok live snapshot pipeline for **Vercel-only deployment**:
 
-- Backend: `server/index.js` (Express + Socket.IO + `tiktok-live-connector`)
-- Frontend: integrated directly into the current TikTok UI flow
+- API route: `api/tiktok/live-snapshot.js` (`tiktok-live-connector`)
+- Frontend polling: `src/modules/studio-page/hook/use-session-lifecycle.hook.ts`
+- Realtime comments/likes/viewers/gifts bridge: `server/index.js` (Socket.IO)
 
-Realtime events supported:
+Polled metrics supported:
 
-- `chat` → comment stream
-- `like` → total likes
-- `roomUser` → viewer count
-- `gift` → gift popup notification
+- connection status
+- viewer count
+- total likes (when TikTok returns stats)
 
 ### Quick start (under 5 minutes)
 
@@ -48,20 +51,26 @@ npm install
 copy .env.example .env
 ```
 
-3. Start app
+3. Start app for TikTok local dev
 
 ```bash
-npm run dev
+npm run dev:tiktok
 ```
 
 4. Open `http://localhost:5173`, login, switch to **Tiktok**.
 5. In TikTok connection panel, enter **TikTok username** and click **Connect**.
 
+> Notes:
+>
+> - `npm run dev` starts Vite only.
+> - For TikTok polling endpoint (`/api/tiktok/live-snapshot`), this repo proxies `/api/tiktok/*` to local `vercel dev` (default `http://localhost:3000`).
+> - For realtime comments, run Socket.IO bridge (`server/index.js`) on port `3001` (included in `npm run dev:tiktok`).
+
 ### Environment variables
 
+- `VITE_TIKTOK_POLL_ENDPOINT` default: `/api/tiktok/live-snapshot`
+- `VITE_TIKTOK_POLL_INTERVAL_MS` default: `7000`
 - `VITE_TIKTOK_SOCKET_URL` default: `http://localhost:3001`
-- `SERVER_PORT` default: `3001`
-- `CLIENT_ORIGIN` default: `http://localhost:5173`
 
 ## Environment
 

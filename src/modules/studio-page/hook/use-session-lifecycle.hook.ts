@@ -23,9 +23,45 @@ import { useSessionSchedulerHook } from "./use-session-scheduler.hook";
 import { useMarketplaceLiveSyncHook } from "./use-marketplace-live-sync.hook";
 import { useObsLifecycleHook } from "./use-obs-lifecycle.hook";
 
+const TIKTOK_POLL_ENDPOINT = import.meta.env.VITE_TIKTOK_POLL_ENDPOINT || "/api/tiktok/live-snapshot";
+const TIKTOK_POLL_INTERVAL_MS = Number(import.meta.env.VITE_TIKTOK_POLL_INTERVAL_MS || 7000);
 const TIKTOK_SOCKET_URL = import.meta.env.VITE_TIKTOK_SOCKET_URL || "http://localhost:3001";
 
-const toLocalTime = (timestamp?: number) => new Date(timestamp || Date.now()).toLocaleTimeString();
+type TiktokLiveSnapshotResponse = {
+  status?: TiktokLiveConnectionStatus;
+  username?: string;
+  message?: string;
+  viewerCount?: number;
+  totalLikes?: number;
+};
+
+type TiktokSocketStatusResponse = {
+  status?: TiktokLiveConnectionStatus;
+  username?: string;
+  message?: string;
+};
+
+type TiktokSocketChatResponse = {
+  username?: string;
+  comment?: string;
+  timestamp?: number;
+};
+
+type TiktokSocketLikeResponse = {
+  totalLikes?: number;
+};
+
+type TiktokSocketViewerResponse = {
+  viewers?: number;
+};
+
+type TiktokSocketGiftResponse = {
+  id?: string;
+  username?: string;
+  giftName?: string;
+  repeatCount?: number;
+  timestamp?: number;
+};
 
 type UseSessionLifecycleHookArgs = {
   managementPlatform: ManagementPlatform;
@@ -75,7 +111,8 @@ export const useSessionLifecycleHook = ({
   const [tiktokViewerCount, setTiktokViewerCount] = useState<number>(0);
   const [tiktokTotalComments, setTiktokTotalComments] = useState<number>(0);
   const [latestTiktokGift, setLatestTiktokGift] = useState<TiktokGiftEvent | null>(null);
-  const socketRef = useRef<Socket | null>(null);
+  const lastPollAbortRef = useRef<AbortController | null>(null);
+  const tiktokSocketRef = useRef<Socket | null>(null);
 
   const {
     obsSessionState,
@@ -140,73 +177,168 @@ export const useSessionLifecycleHook = ({
   });
 
   useEffect(() => {
+    if (!tiktokUsername) {
+      lastPollAbortRef.current?.abort();
+      lastPollAbortRef.current = null;
+      return;
+    }
+
+    let isDisposed = false;
+
+    const pollSnapshot = async (isInitial: boolean) => {
+      if (isDisposed) return;
+
+      if (isInitial) {
+        setTiktokConnectionStatus("connecting");
+        setTiktokConnectionMessage(`Checking @${tiktokUsername}...`);
+        setIsConnectingTiktokLive(true);
+      }
+
+      lastPollAbortRef.current?.abort();
+      const controller = new AbortController();
+      lastPollAbortRef.current = controller;
+
+      try {
+        const response = await fetch(`${TIKTOK_POLL_ENDPOINT}?username=${encodeURIComponent(tiktokUsername)}`, {
+          signal: controller.signal,
+        });
+
+        if (!response.ok) {
+          throw new Error(`Polling failed (${response.status})`);
+        }
+
+        const payload = (await response.json()) as TiktokLiveSnapshotResponse;
+        const status = payload.status || "disconnected";
+
+        setTiktokConnectionStatus(status);
+        setTiktokConnectionMessage(payload.message || "");
+        setIsConnectingTiktokLive(status === "connecting");
+
+        if (payload.username) {
+          setTiktokUsernameInput(payload.username);
+        }
+
+        if (typeof payload.viewerCount === "number") {
+          setTiktokViewerCount(payload.viewerCount);
+        } else if (status === "disconnected" || status === "error") {
+          setTiktokViewerCount(0);
+        }
+
+        if (typeof payload.totalLikes === "number") {
+          setTiktokTotalLikes(payload.totalLikes);
+        }
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        setTiktokConnectionStatus("error");
+        setTiktokConnectionMessage(error instanceof Error ? error.message : "Failed to fetch TikTok live snapshot.");
+        setIsConnectingTiktokLive(false);
+        setTiktokViewerCount(0);
+      }
+    };
+
+    void pollSnapshot(true);
+    const intervalId = window.setInterval(() => {
+      void pollSnapshot(false);
+    }, Math.max(5000, TIKTOK_POLL_INTERVAL_MS));
+
+    return () => {
+      isDisposed = true;
+      window.clearInterval(intervalId);
+      lastPollAbortRef.current?.abort();
+      lastPollAbortRef.current = null;
+    };
+  }, [tiktokUsername]);
+
+  useEffect(() => {
+    if (managementPlatform !== "Tiktok" || !tiktokUsername) {
+      if (tiktokSocketRef.current) {
+        tiktokSocketRef.current.emit("clearUsername");
+        tiktokSocketRef.current.disconnect();
+        tiktokSocketRef.current = null;
+      }
+      return;
+    }
+
     const socket = io(TIKTOK_SOCKET_URL, {
       transports: ["websocket"],
-      autoConnect: true,
       reconnection: true,
     });
 
-    socketRef.current = socket;
+    tiktokSocketRef.current = socket;
 
-    socket.on("tiktokStatus", (payload: { status?: TiktokLiveConnectionStatus; message?: string; username?: string }) => {
-      const status = payload.status || "disconnected";
-      setTiktokConnectionStatus(status);
-      setTiktokConnectionMessage(payload.message || "");
-      setIsConnectingTiktokLive(status === "connecting");
-
-      if (payload.username) {
-        setTiktokUsername(payload.username);
-        setTiktokUsernameInput(payload.username);
-      }
-
-      if (status === "disconnected" || status === "error") {
-        setTiktokViewerCount(0);
-      }
+    socket.on("connect", () => {
+      socket.emit("setUsername", { username: tiktokUsername });
     });
 
-    socket.on("chat", (payload: { username?: string; comment?: string; timestamp?: number }) => {
-      setTiktokRealtimeComments((prev) => {
-        const next: CommentItem = {
-          id: Date.now() + Math.random(),
-          user: payload.username || "viewer",
-          text: payload.comment || "",
-          time: toLocalTime(payload.timestamp),
-          platform: "Tiktok",
-        };
+    socket.on("tiktokStatus", (payload: TiktokSocketStatusResponse) => {
+      if (payload?.status) {
+        setTiktokConnectionStatus(payload.status);
+      }
+      setTiktokConnectionMessage(payload?.message || "");
+      setIsConnectingTiktokLive(payload?.status === "connecting");
+    });
 
-        const updated = [...prev, next];
-        return updated.slice(-100);
+    socket.on("chat", (payload: TiktokSocketChatResponse) => {
+      const commentText = String(payload?.comment || "").trim();
+      if (!commentText) return;
+
+      const username = String(payload?.username || "viewer").trim() || "viewer";
+
+      setTiktokRealtimeComments((prev) => {
+        const next = [
+          ...prev,
+          {
+            id: Date.now() + Math.floor(Math.random() * 1000),
+            user: username,
+            text: commentText,
+            time: new Date(payload?.timestamp || Date.now()).toLocaleTimeString(),
+            platform: "Tiktok" as const,
+          },
+        ];
+        return next.slice(-200);
       });
       setTiktokTotalComments((prev) => prev + 1);
     });
 
-    socket.on("like", (payload: { totalLikes?: number }) => {
-      if (typeof payload.totalLikes === "number") {
+    socket.on("like", (payload: TiktokSocketLikeResponse) => {
+      if (typeof payload?.totalLikes === "number") {
         setTiktokTotalLikes(payload.totalLikes);
       }
     });
 
-    socket.on("viewer", (payload: { viewers?: number }) => {
-      if (typeof payload.viewers === "number") {
+    socket.on("viewer", (payload: TiktokSocketViewerResponse) => {
+      if (typeof payload?.viewers === "number") {
         setTiktokViewerCount(payload.viewers);
       }
     });
 
-    socket.on("gift", (payload: { id?: string; username?: string; giftName?: string; repeatCount?: number; timestamp?: number }) => {
+    socket.on("gift", (payload: TiktokSocketGiftResponse) => {
       setLatestTiktokGift({
-        id: payload.id || `${Date.now()}`,
-        username: payload.username || "viewer",
-        giftName: payload.giftName || "Gift",
-        repeatCount: Number(payload.repeatCount || 1),
-        timestamp: toLocalTime(payload.timestamp),
+        id: payload?.id || `${Date.now()}`,
+        username: payload?.username || "viewer",
+        giftName: payload?.giftName || "Gift",
+        repeatCount: Number(payload?.repeatCount || 1),
+        timestamp: new Date(payload?.timestamp || Date.now()).toLocaleTimeString(),
       });
     });
 
+    socket.on("connect_error", (error) => {
+      setTiktokConnectionStatus("error");
+      setTiktokConnectionMessage(error instanceof Error ? error.message : "Failed to connect realtime TikTok stream.");
+      setIsConnectingTiktokLive(false);
+    });
+
     return () => {
+      socket.emit("clearUsername");
       socket.disconnect();
-      socketRef.current = null;
+      if (tiktokSocketRef.current === socket) {
+        tiktokSocketRef.current = null;
+      }
     };
-  }, []);
+  }, [managementPlatform, tiktokUsername]);
 
   useEffect(() => {
     if (!latestTiktokGift) return;
@@ -443,8 +575,6 @@ export const useSessionLifecycleHook = ({
     setLatestTiktokGift(null);
     setIsConnectingTiktokLive(true);
 
-    socketRef.current?.emit("setUsername", { username });
-
     addLog("TikTok username connected", `Connected TikTok livestream source: @${username}`, {
       platform: managementPlatform,
       result: "success",
@@ -454,7 +584,7 @@ export const useSessionLifecycleHook = ({
 
   const onDetachTiktokLiveUrl = () => {
     if (managementPlatform !== "Tiktok") return;
-    socketRef.current?.emit("clearUsername");
+    lastPollAbortRef.current?.abort();
     setTiktokUsername("");
     setTiktokUsernameInput("");
     setTiktokConnectionStatus("disconnected");

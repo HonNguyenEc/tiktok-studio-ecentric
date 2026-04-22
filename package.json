@@ -4,9 +4,11 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k \"npm:dev:server\" \"npm:dev:client\"",
+    "dev": "vite",
+    "dev:vercel": "vercel dev",
     "dev:client": "vite",
     "dev:server": "node --watch server/index.js",
+    "dev:tiktok": "concurrently \"npm run dev:vercel\" \"npm run dev:server\"",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

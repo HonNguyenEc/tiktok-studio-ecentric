@@ -9,6 +9,9 @@ interface ImportMetaEnv {
   readonly VITE_SHOPEE_ACCESS_TOKEN: string;
   readonly VITE_SHOPEE_REFRESH_TOKEN: string;
   readonly VITE_SHOPEE_TIMEOUT_MS?: string;
+  readonly VITE_TIKTOK_POLL_ENDPOINT?: string;
+  readonly VITE_TIKTOK_POLL_INTERVAL_MS?: string;
+  readonly VITE_TIKTOK_SOCKET_URL?: string;
 }
 
 interface ImportMeta {
