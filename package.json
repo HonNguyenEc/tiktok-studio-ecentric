@@ -9,6 +9,7 @@
     "dev:client": "vite",
     "dev:server": "node --watch server/index.js",
     "dev:tiktok": "concurrently \"npm run dev:vercel\" \"npm run dev:server\"",
+    "start": "node server/index.js",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview"

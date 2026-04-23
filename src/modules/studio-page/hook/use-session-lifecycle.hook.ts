@@ -263,7 +263,6 @@ export const useSessionLifecycleHook = ({
     }
 
     const socket = io(TIKTOK_SOCKET_URL, {
-      transports: ["websocket"],
       reconnection: true,
     });
 

@@ -19,6 +19,7 @@ Full rulebook: **`docs/architecture-rules.md`**
 - `npm run dev:vercel` (run frontend + `/api/*` Vercel functions locally)
 - `npm run dev:server` (legacy Socket.IO server, no longer required for Vercel-only flow)
 - `npm run dev:tiktok` (run `vercel dev` + realtime Socket.IO TikTok bridge together)
+- `npm start` (production server for Render: snapshot API + Socket.IO)
 - `npm run lint`
 - `npm run build`
 - `npm run preview`
@@ -71,6 +72,19 @@ npm run dev:tiktok
 - `VITE_TIKTOK_POLL_ENDPOINT` default: `/api/tiktok/live-snapshot`
 - `VITE_TIKTOK_POLL_INTERVAL_MS` default: `7000`
 - `VITE_TIKTOK_SOCKET_URL` default: `http://localhost:3001`
+
+### Deploy notes (Render + Vercel)
+
+For production, do **not** run `vercel dev` on Render.
+
+- Render should run backend only (Express + Socket.IO):
+  - Build Command: `yarn install && yarn build`
+  - Start Command: `yarn start`
+- Render env:
+  - `CLIENT_ORIGIN=https://<your-vercel-domain>` (or comma-separated origins)
+- Vercel frontend env:
+  - `VITE_TIKTOK_POLL_ENDPOINT=https://<your-render-domain>/api/tiktok/live-snapshot`
+  - `VITE_TIKTOK_SOCKET_URL=https://<your-render-domain>`
 
 ## Environment
 
