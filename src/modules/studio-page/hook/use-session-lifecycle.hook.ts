@@ -23,10 +23,10 @@ import { useSessionSchedulerHook } from "./use-session-scheduler.hook";
 import { useMarketplaceLiveSyncHook } from "./use-marketplace-live-sync.hook";
 import { useObsLifecycleHook } from "./use-obs-lifecycle.hook";
 
-const TIKTOK_POLL_ENDPOINT = import.meta.env.VITE_TIKTOK_POLL_ENDPOINT || "/api/tiktok/live-snapshot";
+// const TIKTOK_POLL_ENDPOINT = import.meta.env.VITE_TIKTOK_POLL_ENDPOINT || "/api/tiktok/live-snapshot";
+const TIKTOK_POLL_ENDPOINT = "https://tiktok-studio-ecentric.onrender.com/api/tiktok/live-snapshot";
 const TIKTOK_POLL_INTERVAL_MS = Number(import.meta.env.VITE_TIKTOK_POLL_INTERVAL_MS || 7000);
-const TIKTOK_SOCKET_URL = import.meta.env.VITE_TIKTOK_SOCKET_URL || "http://localhost:3001";
-
+const TIKTOK_SOCKET_URL = "https://tiktok-studio-ecentric.onrender.com";
 type TiktokLiveSnapshotResponse = {
   status?: TiktokLiveConnectionStatus;
   username?: string;
